@@ -18,5 +18,16 @@
   "display_override": [
     "standalone",
     "window-controls-overlay"
-  ]
+  ],
+  "icons": [
+    {
+      "src": "Connected192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "Connected.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
 }
