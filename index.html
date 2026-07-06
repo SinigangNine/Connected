@@ -44,7 +44,31 @@
     #installBanner button { background: white; color: var(--gold); border: none; border-radius: 20px; padding: 6px 14px; font-weight: 700; cursor: pointer; font-size: 0.82rem; }
     #installBanner .dismiss { background: transparent; color: rgba(255,255,255,0.7); font-size: 1.1rem; padding: 4px 8px; }
 
-    main { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
+    /* Tabs */
+    .tab-bar { display: flex; max-width: 760px; margin: 0 auto; padding: 0 16px; margin-top: 18px; gap: 8px; }
+    .tab-btn {
+      flex: 1; background: var(--white); border: 1.5px solid var(--mist); color: var(--slate);
+      font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; padding: 12px 8px;
+      border-radius: 10px; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; text-align: center;
+    }
+    .tab-btn .tab-icon { font-size: 1.15rem; }
+    .tab-btn.active { background: var(--navy); border-color: var(--navy); color: var(--white); box-shadow: 0 4px 12px rgba(27,42,74,0.25); }
+    .tab-btn:not(.active):hover { border-color: var(--gold); color: var(--navy); }
+    .tab-count {
+      display: inline-block; min-width: 16px; padding: 0 4px; border-radius: 8px; font-size: 0.65rem;
+      background: rgba(255,255,255,0.2); margin-top: 1px;
+    }
+    .tab-btn:not(.active) .tab-count { background: var(--mist); color: var(--slate); }
+
+    main { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+
+    .form-context {
+      display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--slate);
+      margin-bottom: 14px; padding: 8px 14px; background: var(--mist); border-radius: 8px;
+    }
+    .form-context strong { color: var(--navy); }
+    .form-context .edit-flag { margin-left: auto; background: var(--gold); color: white; padding: 2px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
 
     .section-card { background: var(--white); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(27,42,74,0.07); }
     .section-title { font-family: 'Playfair Display', serif; font-size: 1.05rem; color: var(--navy); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--mist); display: flex; align-items: center; gap: 8px; }
@@ -69,6 +93,7 @@
     .btn-primary:hover { opacity: 0.88; }
     .btn-save { background: var(--navy); color: var(--white); width: 100%; padding: 14px; font-size: 0.95rem; margin-top: 4px; }
     .btn-save:hover { opacity: 0.88; }
+    .btn-cancel { background: var(--mist); color: var(--slate); width: 100%; padding: 10px; font-size: 0.85rem; margin-top: 8px; }
     .btn-edit { background: var(--mist); color: var(--navy); }
     .btn-delete { background: #fdecea; color: var(--red); }
     .btn-export { background: #e8f5e9; color: #2e7d32; }
@@ -98,6 +123,9 @@
     .songs-ol li { padding: 6px 0; border-bottom: 1px dashed var(--mist); font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
     .songs-ol li:last-child { border-bottom: none; }
     .song-num { background: var(--gold); color: var(--white); border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .song-link { background: none; border: none; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-align: left; text-decoration: none; border-bottom: 1px dashed var(--gold); transition: color 0.15s; }
+    .song-link:hover { color: var(--gold); }
+    .song-link .chords-hint { font-size: 0.68rem; color: #9aabcc; font-weight: 500; margin-left: 6px; text-decoration: none; }
     .card-actions { display: flex; gap: 8px; }
 
     .schedules-header { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--navy); margin: 28px 0 14px; display: flex; align-items: center; gap: 10px; }
@@ -116,8 +144,8 @@
     @media print {
       body { background: white; }
       header { background: #1B2A4A !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      #installBanner, .section-card, #loadingOverlay, .export-bar,
-      .card-actions, .btn-save, .toast, .storage-badge { display: none !important; }
+      #installBanner, .tab-bar, .form-context, .section-card, #loadingOverlay, .export-bar,
+      .card-actions, .btn-save, .btn-cancel, .toast, .storage-badge { display: none !important; }
       .schedule-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; margin-bottom: 20px; }
     }
   </style>
@@ -139,7 +167,24 @@
   <div class="storage-badge"><span class="dot"></span><span id="storageLabel">Connecting…</span></div>
 </header>
 
+<nav class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-service="sunday" onclick="switchTab('sunday')">
+    <span class="tab-icon">⛪</span> Sunday Service <span class="tab-count" id="count-sunday">0</span>
+  </button>
+  <button class="tab-btn" data-service="youth" onclick="switchTab('youth')">
+    <span class="tab-icon">🔥</span> Youth Service <span class="tab-count" id="count-youth">0</span>
+  </button>
+  <button class="tab-btn" data-service="midweek" onclick="switchTab('midweek')">
+    <span class="tab-icon">📖</span> Midweek Service <span class="tab-count" id="count-midweek">0</span>
+  </button>
+</nav>
+
 <main>
+  <div class="form-context">
+    Planning for: <strong id="formContextLabel">Sunday Service</strong>
+    <span class="edit-flag" id="editFlag" style="display:none;">Editing</span>
+  </div>
+
   <div class="section-card">
     <div class="section-title"><span class="icon">📅</span> Service Details</div>
     <div class="info-row">
@@ -174,8 +219,9 @@
   </div>
 
   <button class="btn btn-save" onclick="saveSchedule()">💾 Save Schedule</button>
+  <button class="btn btn-cancel" id="cancelEditBtn" style="display:none;" onclick="clearForm()">✕ Cancel Editing</button>
 
-  <div class="schedules-header">Saved Schedules</div>
+  <div class="schedules-header" id="schedulesHeader">Saved Sunday Schedules</div>
   <div class="export-bar">
     <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
     <button class="btn btn-export" onclick="exportJSON()">⬇️ Export Backup</button>
@@ -218,6 +264,11 @@
   const { createClient } = supabase;
   const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+  // ── Service tab config ────────────────────────────────────────────────
+  const SERVICE_LABELS = { sunday: 'Sunday Service', youth: 'Youth Service', midweek: 'Midweek Service' };
+  let activeService = 'sunday';
+  let allSchedules = []; // full cache of rows from db, each row.data.service_type tags which tab it belongs to
+
   // ── App state ─────────────────────────────────────────────────────────
   let songs = [];
   let editId = null;
@@ -228,6 +279,19 @@
     document.getElementById('storageLabel').textContent = 'Live — shared with everyone';
     document.getElementById('loadingOverlay').style.display = 'none';
   })();
+
+  // ── Tabs ──────────────────────────────────────────────────────────────
+  function switchTab(service) {
+    if (service === activeService) return;
+    activeService = service;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.service === service);
+    });
+    document.getElementById('formContextLabel').textContent = SERVICE_LABELS[service];
+    document.getElementById('schedulesHeader').textContent = `Saved ${SERVICE_LABELS[service]} Schedules`;
+    clearForm();       // fresh form when switching services
+    renderOutput();
+  }
 
   // ── Drag & drop ───────────────────────────────────────────────────────
   new Sortable(document.getElementById('songList'), {
@@ -280,11 +344,23 @@
     ['date','preacher','vocalist','backup1','backup2','guitarist',
      'electricGuitar','bassist','keyboardist','drummer'].forEach(id => set(id, ''));
     songs = []; renderSongs(); editId = null;
+    document.getElementById('editFlag').style.display = 'none';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  // Opens a chord search for a song in a new tab. Escapes the title for safe use in HTML attributes.
+  function searchChords(title) {
+    const query = encodeURIComponent(`${title} chords`);
+    window.open(`https://www.google.com/search?q=${query}`, '_blank', 'noopener');
+  }
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
   // ── Save ──────────────────────────────────────────────────────────────
   async function saveSchedule() {
     const data = {
+      service_type: activeService,
       date: val('date'), preacher: val('preacher'),
       roles: {
         vocalist: val('vocalist'), backup1: val('backup1'), backup2: val('backup2'),
@@ -300,7 +376,7 @@
       const { error } = await db.from('schedules').insert([{ data, created_at: new Date().toISOString() }]);
       if (error) { showToast('❌ ' + error.message); return; }
     }
-    clearForm(); await loadSchedules(); showToast('Schedule saved ✓');
+    clearForm(); await loadSchedules(); showToast(`${SERVICE_LABELS[activeService]} schedule saved ✓`);
   }
 
   // ── Load ──────────────────────────────────────────────────────────────
@@ -311,22 +387,50 @@
   };
   async function loadSchedules() {
     const { data: rows, error } = await db.from('schedules').select('*').order('created_at', { ascending: false });
+    if (error) {
+      document.getElementById('output').innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    // Older rows saved before tabs existed default to "sunday" so nothing gets lost.
+    allSchedules = (rows || []).map(row => {
+      if (!row.data.service_type) row.data.service_type = 'sunday';
+      return row;
+    });
+    updateTabCounts();
+    renderOutput();
+  }
+
+  function updateTabCounts() {
+    Object.keys(SERVICE_LABELS).forEach(svc => {
+      const count = allSchedules.filter(r => r.data.service_type === svc).length;
+      document.getElementById(`count-${svc}`).textContent = count;
+    });
+  }
+
+  function renderOutput() {
     const output = document.getElementById('output');
     output.innerHTML = '';
-    if (error) { output.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${error.message}</div>`; return; }
-    if (!rows || !rows.length) { output.innerHTML = `<div class="empty-state"><div class="big">🎼</div>No schedules yet. Fill in the form above to get started.</div>`; return; }
+    const rows = allSchedules.filter(r => r.data.service_type === activeService);
+    if (!rows.length) {
+      output.innerHTML = `<div class="empty-state"><div class="big">🎼</div>No ${SERVICE_LABELS[activeService]} schedules yet. Fill in the form above to get started.</div>`;
+      return;
+    }
     rows.forEach(row => {
       const s = row.data;
       const div = document.createElement('div');
       div.className = 'schedule-card';
       const rolesBadges = Object.entries(s.roles || {}).filter(([,v]) => v)
-        .map(([k,v]) => `<span class="role-badge">${roleLabels[k]||k}: ${v}</span>`).join('');
+        .map(([k,v]) => `<span class="role-badge">${roleLabels[k]||k}: ${escapeHtml(v)}</span>`).join('');
       const songItems = (s.songs||[]).map((song,n) => `
         <li><span class="song-num">${n+1}</span>
-        <span><strong>${song.title}</strong>${song.key?' — '+song.key:''}${song.tempo?', '+song.tempo:''}</span></li>`).join('');
+        <span>
+          <button class="song-link" onclick="searchChords('${escapeHtml(song.title).replace(/'/g,"\\'")}')" title="Search for chords online">${escapeHtml(song.title)}</button>
+          ${song.key?' — '+escapeHtml(song.key):''}${song.tempo?', '+escapeHtml(song.tempo):''}
+          <span class="chords-hint">🔍 chords</span>
+        </span></li>`).join('');
       div.innerHTML = `
-        <h3>📅 ${s.date||'No date'}</h3>
-        <div class="schedule-meta">${s.preacher?`<span class="meta-chip"><strong>Preacher:</strong> ${s.preacher}</span>`:''}</div>
+        <h3>📅 ${escapeHtml(s.date)||'No date'}</h3>
+        <div class="schedule-meta">${s.preacher?`<span class="meta-chip"><strong>Preacher:</strong> ${escapeHtml(s.preacher)}</span>`:''}</div>
         <div class="roles-list">${rolesBadges||'<span style="color:#9aabcc;font-size:.8rem">No roles assigned</span>'}</div>
         ${songItems?`<ol class="songs-ol">${songItems}</ol>`:'<p style="font-size:.85rem;color:#9aabcc;margin-bottom:12px">No songs added</p>'}
         <div class="card-actions">
@@ -345,22 +449,40 @@
   }
 
   async function editSchedule(id) {
-    const { data: row } = await db.from('schedules').select('*').eq('id', id).single();
+    const row = allSchedules.find(r => String(r.id) === String(id));
+    if (!row) return;
     const s = row.data;
+    // Jump to the correct tab if the schedule being edited belongs to a different service.
+    if (s.service_type && s.service_type !== activeService) {
+      activeService = s.service_type;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.service === activeService);
+      });
+      document.getElementById('formContextLabel').textContent = SERVICE_LABELS[activeService];
+      document.getElementById('schedulesHeader').textContent = `Saved ${SERVICE_LABELS[activeService]} Schedules`;
+      renderOutput();
+    }
     set('date',s.date); set('preacher',s.preacher);
     set('vocalist',s.roles.vocalist); set('backup1',s.roles.backup1);
     set('backup2',s.roles.backup2); set('guitarist',s.roles.guitarist);
     set('electricGuitar',s.roles.electricGuitar); set('bassist',s.roles.bassist);
     set('keyboardist',s.roles.keyboardist); set('drummer',s.roles.drummer);
     songs = [...s.songs]; renderSongs(); editId = id;
+    document.getElementById('editFlag').style.display = 'inline-block';
+    document.getElementById('cancelEditBtn').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('Editing schedule — save when done');
   }
 
   async function exportJSON() {
-    const { data: rows } = await db.from('schedules').select('*').order('created_at', { ascending: false });
-    if (!rows||!rows.length) { showToast('No schedules to export'); return; }
-    const blob = new Blob([JSON.stringify(rows.map(r=>r.data),null,2)], { type:'application/json' });
+    if (!allSchedules.length) { showToast('No schedules to export'); return; }
+    const grouped = { sunday: [], youth: [], midweek: [] };
+    allSchedules.forEach(r => {
+      const svc = r.data.service_type || 'sunday';
+      if (!grouped[svc]) grouped[svc] = [];
+      grouped[svc].push(r.data);
+    });
+    const blob = new Blob([JSON.stringify(grouped,null,2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href=url; a.download='worship-schedules-backup.json'; a.click();
