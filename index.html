@@ -95,10 +95,6 @@
     .btn-save:hover { opacity: 0.88; }
     .btn-cancel { background: var(--mist); color: var(--slate); width: 100%; padding: 10px; font-size: 0.85rem; margin-top: 8px; }
     .btn-edit { background: var(--mist); color: var(--navy); }
-    .btn-delete { background: #fdecea; color: var(--red); }
-    .btn-export { background: #e8f5e9; color: #2e7d32; }
-    .btn-print  { background: #e3f2fd; color: #1565c0; }
-    .export-bar { display: flex; gap: 10px; margin-bottom: 6px; }
 
     #songList { list-style: none; margin-top: 4px; }
     #songList li { display: flex; align-items: center; gap: 10px; background: var(--cream); border: 1.5px solid var(--mist); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; cursor: grab; transition: box-shadow 0.15s; }
@@ -123,9 +119,6 @@
     .songs-ol li { padding: 6px 0; border-bottom: 1px dashed var(--mist); font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
     .songs-ol li:last-child { border-bottom: none; }
     .song-num { background: var(--gold); color: var(--white); border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .song-link { background: none; border: none; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-align: left; text-decoration: none; border-bottom: 1px dashed var(--gold); transition: color 0.15s; }
-    .song-link:hover { color: var(--gold); }
-    .song-link .chords-hint { font-size: 0.68rem; color: #9aabcc; font-weight: 500; margin-left: 6px; text-decoration: none; }
     .card-actions { display: flex; gap: 8px; }
 
     .schedules-header { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--navy); margin: 28px 0 14px; display: flex; align-items: center; gap: 10px; }
@@ -144,7 +137,7 @@
     @media print {
       body { background: white; }
       header { background: #1B2A4A !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      #installBanner, .tab-bar, .form-context, .section-card, #loadingOverlay, .export-bar,
+      #installBanner, .tab-bar, .form-context, .section-card, #loadingOverlay,
       .card-actions, .btn-save, .btn-cancel, .toast, .storage-badge { display: none !important; }
       .schedule-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; margin-bottom: 20px; }
     }
@@ -221,10 +214,6 @@
   <button class="btn btn-cancel" id="cancelEditBtn" style="display:none;" onclick="clearForm()">✕ Cancel Editing</button>
 
   <div class="schedules-header" id="schedulesHeader">Saved Sunday Schedules</div>
-  <div class="export-bar">
-    <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
-    <button class="btn btn-export" onclick="exportJSON()">⬇️ Export Backup</button>
-  </div>
   <div id="output"></div>
 </main>
 
@@ -326,7 +315,7 @@
       li.innerHTML = `
         <span class="drag-handle">⠿</span>
         <div class="song-info">
-          <div class="song-title-text">${s.title}</div>
+          <div class="song-title-text">${escapeHtml(s.title)}</div>
           <div class="song-meta">${[s.key, s.tempo].filter(Boolean).join(' · ')}</div>
         </div>
         <button class="song-remove" onclick="removeSong(${i})">✕</button>`;
@@ -345,11 +334,6 @@
     document.getElementById('cancelEditBtn').style.display = 'none';
   }
 
-  // Opens a chord search for a song in a new tab. Escapes the title for safe use in HTML attributes.
-  function searchChords(title) {
-    const query = encodeURIComponent(`${title} chords`);
-    window.open(`https://www.google.com/search?q=${query}`, '_blank', 'noopener');
-  }
   function escapeHtml(str) {
     return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -421,9 +405,8 @@
       const songItems = (s.songs||[]).map((song,n) => `
         <li><span class="song-num">${n+1}</span>
         <span>
-          <button class="song-link" onclick="searchChords('${escapeHtml(song.title).replace(/'/g,"\\'")}')" title="Search for chords online">${escapeHtml(song.title)}</button>
+          ${escapeHtml(song.title)}
           ${song.key?' — '+escapeHtml(song.key):''}${song.tempo?', '+escapeHtml(song.tempo):''}
-          <span class="chords-hint">🔍 chords</span>
         </span></li>`).join('');
       div.innerHTML = `
         <h3>📅 ${escapeHtml(s.date)||'No date'}</h3>
@@ -432,17 +415,9 @@
         ${songItems?`<ol class="songs-ol">${songItems}</ol>`:'<p style="font-size:.85rem;color:#9aabcc;margin-bottom:12px">No songs added</p>'}
         <div class="card-actions">
           <button class="btn btn-edit" onclick="editSchedule('${row.id}')">✏️ Edit</button>
-          <button class="btn btn-delete" onclick="deleteSchedule('${row.id}')">🗑 Delete</button>
         </div>`;
       output.appendChild(div);
     });
-  }
-
-  async function deleteSchedule(id) {
-    if (!confirm('Delete this schedule?')) return;
-    const { error } = await db.from('schedules').delete().eq('id', id);
-    if (error) { showToast('❌ ' + error.message); return; }
-    await loadSchedules(); showToast('Schedule deleted');
   }
 
   async function editSchedule(id) {
@@ -469,21 +444,6 @@
     document.getElementById('cancelEditBtn').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('Editing schedule — save when done');
-  }
-
-  async function exportJSON() {
-    if (!allSchedules.length) { showToast('No schedules to export'); return; }
-    const grouped = { sunday: [], youth: [], midweek: [] };
-    allSchedules.forEach(r => {
-      const svc = r.data.service_type || 'sunday';
-      if (!grouped[svc]) grouped[svc] = [];
-      grouped[svc].push(r.data);
-    });
-    const blob = new Blob([JSON.stringify(grouped,null,2)], { type:'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download='worship-schedules-backup.json'; a.click();
-    URL.revokeObjectURL(url); showToast('Backup downloaded ✓');
   }
 
   function showToast(msg) {
