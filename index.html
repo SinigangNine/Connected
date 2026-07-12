@@ -115,6 +115,7 @@
     .meta-chip strong { color: var(--navy); }
     .roles-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .role-badge { background: #e8f0fe; color: #2a4fa8; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; font-weight: 600; }
+    .role-badge-highlight { background: #fff3d6; color: #8a5a00; border: 1px solid #f0c96b; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; }
     .songs-ol { list-style: none; margin-bottom: 14px; }
     .songs-ol li { padding: 6px 0; border-bottom: 1px dashed var(--mist); font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
     .songs-ol li:last-child { border-bottom: none; }
@@ -400,8 +401,19 @@
       const s = row.data;
       const div = document.createElement('div');
       div.className = 'schedule-card';
-      const rolesBadges = Object.entries(s.roles || {}).filter(([,v]) => v)
-        .map(([k,v]) => `<span class="role-badge">${roleLabels[k]||k}: ${escapeHtml(v)}</span>`).join('');
+      // Preacher and Lead Vocalist always lead the roles list; the rest follow in their usual order.
+      const priorityOrder = ['vocalist'];
+      const roleEntries = Object.entries(s.roles || {}).filter(([,v]) => v)
+        .sort((a,b) => {
+          const ai = priorityOrder.indexOf(a[0]), bi = priorityOrder.indexOf(b[0]);
+          if (ai === -1 && bi === -1) return 0;
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        });
+      const preacherBadge = s.preacher ? `<span class="role-badge-highlight"><strong>Preacher:</strong> ${escapeHtml(s.preacher)}</span>` : '';
+      const rolesBadges = preacherBadge + roleEntries
+        .map(([k,v]) => `<span class="${k === 'vocalist' ? 'role-badge-highlight' : 'role-badge'}">${roleLabels[k]||k}: ${escapeHtml(v)}</span>`).join('');
       const songItems = (s.songs||[]).map((song,n) => `
         <li><span class="song-num">${n+1}</span>
         <span>
@@ -410,7 +422,6 @@
         </span></li>`).join('');
       div.innerHTML = `
         <h3>📅 ${escapeHtml(s.date)||'No date'}</h3>
-        <div class="schedule-meta">${s.preacher?`<span class="meta-chip"><strong>Preacher:</strong> ${escapeHtml(s.preacher)}</span>`:''}</div>
         <div class="roles-list">${rolesBadges||'<span style="color:#9aabcc;font-size:.8rem">No roles assigned</span>'}</div>
         ${songItems?`<ol class="songs-ol">${songItems}</ol>`:'<p style="font-size:.85rem;color:#9aabcc;margin-bottom:12px">No songs added</p>'}
         <div class="card-actions">
