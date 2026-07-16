@@ -1,30 +1,112 @@
-const CACHE = 'worship-planner-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap'
+const CACHE_NAME = "connected-cache-v2";
+const APP_SHELL = [
+  "index.html",
+  "offline.html",
+  "manifest.json",
+  "GPCM192.png",
+  "GPCM512.png"
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {}))
+// ---------- INSTALL: pre-cache the app shell ----------
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+// ---------- ACTIVATE: clean up old caches ----------
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
+      )
     )
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+// ---------- FETCH: network-first, cache fallback, offline page for navigations ----------
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+
+  // Only handle GET requests
+  if (request.method !== "GET") return;
+
+  // Don't intercept cross-origin calls (e.g. Supabase API) — let those hit the network normally
+  if (new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
+
+  // Page navigations: try network, fall back to cache, then to offline.html
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached || caches.match("offline.html");
+        })
+    );
+    return;
+  }
+
+  // Static assets: cache-first, then network, updating the cache as we go
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const networkFetch = fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+          }
+          return response;
+        })
+        .catch(() => cached || caches.match("offline.html"));
+
+      return cached || networkFetch;
+    })
+  );
+});
+
+// ---------- PUSH: display a notification when a push message arrives ----------
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: "Connected", body: event.data ? event.data.text() : "" };
+  }
+
+  const title = data.title || "Connected";
+  const options = {
+    body: data.body || "You have a new update.",
+    icon: data.icon || "GPCM192.png",
+    badge: data.badge || "GPCM192.png",
+    data: data.url ? { url: data.url } : {},
+    tag: data.tag || "connected-notification"
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// ---------- NOTIFICATION CLICK: focus/open the app ----------
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "index.html";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      const existing = clientsArr.find((c) => c.url.includes(targetUrl));
+      if (existing) return existing.focus();
+      return self.clients.openWindow(targetUrl);
+    })
   );
 });
